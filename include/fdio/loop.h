@@ -31,15 +31,33 @@
  * epoll loop calls the supplied function |func| with the file descriptor,
  * the event flag and the user data as arguments.
  *
+ * For convenience, |add_fd_events_to_epoll_loop| allows to map events
+ * to callback functions automatically. It receives a structure with a
+ * callback for each event and will call the correct function when the
+ * event happens.
+ *
  * File descriptors can be removed from the poll loop using
  * |remove_fd_from_epoll_loop|.
  *
  * The interface is _not_ thread-safe.
  */
 
+struct fd_events {
+  void* data;
+  void (*epollin)(int, void*);
+  void (*epollpri)(int, void*);
+  void (*epollout)(int, void*);
+  void (*epollerr)(int, void*);
+  void (*epollhup)(int, void*);
+};
+
 int
 add_fd_to_epoll_loop(int fd, uint32_t epoll_events,
                      void (*func)(int, uint32_t, void*), void* data);
+
+int
+add_fd_events_to_epoll_loop(int fd, uint32_t epoll_events,
+                            const struct fd_events* evfuncs);
 
 void
 remove_fd_from_epoll_loop(int fd);

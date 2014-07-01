@@ -83,6 +83,72 @@ add_fd_to_epoll_loop(int fd, uint32_t epoll_events,
   return 0;
 }
 
+/* returns event bits at position 'i' or above */
+static int
+events_above(uint32_t epoll_events, unsigned int i)
+{
+  assert(i < 32);
+  return epoll_events & ~((1<<i)-1);
+}
+
+static void
+fd_events_func(int fd, uint32_t epoll_events, const struct fd_events* evfuncs)
+{
+  uint32_t bit;
+
+  assert(evfuncs);
+
+  for (bit = 0; events_above(epoll_events, bit); ++bit) {
+    void (*func)(int, void*);
+    switch (epoll_events & (1<<bit)) {
+      case 0:
+        /* no event at current bit */
+        continue;
+      case EPOLLIN:
+        func = evfuncs->epollin;
+        break;
+      case EPOLLPRI:
+        func = evfuncs->epollpri;
+        break;
+      case EPOLLOUT:
+        func = evfuncs->epollout;
+        break;
+      case EPOLLERR:
+        func = evfuncs->epollerr;
+        break;
+      case EPOLLHUP:
+        func = evfuncs->epollhup;
+        break;
+      default:
+        ALOGE("unknown event bit 0x%x", bit);
+        continue;
+    }
+    if (func) {
+      func(fd, evfuncs->data);
+    } else {
+      ALOGE("unhandled event bit 0x%x", bit);
+    }
+  }
+}
+
+static void
+fd_events_func_cb(int fd, uint32_t epoll_events, void* data)
+{
+  return fd_events_func(fd, epoll_events, data);
+}
+
+int
+add_fd_events_to_epoll_loop(int fd, uint32_t epoll_events,
+                            const struct fd_events* evfuncs)
+{
+  if (!evfuncs) {
+    ALOGE("no callback structure specified");
+    return -1;
+  }
+  return add_fd_to_epoll_loop(fd, epoll_events, fd_events_func_cb,
+                              (void*)evfuncs);
+}
+
 void
 remove_fd_from_epoll_loop(int fd)
 {
