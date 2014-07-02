@@ -149,6 +149,19 @@ add_fd_events_to_epoll_loop(int fd, uint32_t epoll_events,
                               (void*)evfuncs);
 }
 
+static void 
+clear_fd_state(struct fd_state *fd_state)
+{
+  assert(fd_state);
+
+  fd_state->event.events = 0;
+  /* use the largest union member to clean allocated memory*/
+  fd_state->event.data.u64 = 0;
+  fd_state->func = NULL;
+  fd_state->data = NULL;
+}
+
+
 void
 remove_fd_from_epoll_loop(int fd)
 {
@@ -162,6 +175,8 @@ remove_fd_from_epoll_loop(int fd)
   res = epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
   if (res < 0)
     ALOGW_ERRNO("epoll_ctl");
+
+  clear_fd_state(&fd_state[fd]);
 }
 
 static int
