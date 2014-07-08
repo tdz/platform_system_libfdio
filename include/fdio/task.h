@@ -29,6 +29,10 @@
  * This interface is _not_ thread-safe, except for |run_task|.
  */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int
 init_task_queue(void);
 
@@ -37,3 +41,7 @@ uninit_task_queue(void);
 
 int
 run_task(int (*func)(void*), void* data);
+
+#ifdef __cplusplus
+}
+#endif

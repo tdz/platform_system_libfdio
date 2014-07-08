@@ -42,6 +42,10 @@
  * The interface is _not_ thread-safe.
  */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct fd_events {
   void* data;
   void (*epollin)(int, void*);
@@ -64,3 +68,7 @@ remove_fd_from_epoll_loop(int fd);
 
 int
 epoll_loop(int (*init)(void*), void* data);
+
+#ifdef __cplusplus
+}
+#endif
