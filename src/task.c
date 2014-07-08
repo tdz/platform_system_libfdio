@@ -65,7 +65,7 @@ delete_task(struct task* task)
 }
 
 static void
-exec_task(int fd, uint32_t flags, void* data)
+exec_task()
 {
   struct task* task = fetch_task();
   if (!task)
@@ -75,19 +75,36 @@ exec_task(int fd, uint32_t flags, void* data)
   delete_task(task);
 }
 
+static void
+task_epollin_cb(int fd, void* data)
+{
+  exec_task();
+}
+
+static void
+task_epollerr_cb(int fd, void* data)
+{
+  ALOGE("Task pipe error");
+}
+
 int
 init_task_queue()
 {
+  static const struct fd_events evfuncs = {
+    .epollin = task_epollin_cb,
+    .epollerr = task_epollerr_cb
+  };
+
   if (TEMP_FAILURE_RETRY(pipe(pipefd)) < 0) {
     ALOGE_ERRNO("pipe");
     return -1;
   }
 
-  if (add_fd_to_epoll_loop(pipefd[0], EPOLLIN|EPOLLERR, exec_task, NULL) < 0)
-    goto err_add_fd_to_epoll_loop;
+  if (add_fd_events_to_epoll_loop(pipefd[0], EPOLLIN|EPOLLERR, &evfuncs) < 0)
+    goto err_add_fd_events_to_epoll_loop;
 
   return 0;
-err_add_fd_to_epoll_loop:
+err_add_fd_events_to_epoll_loop:
   if (TEMP_FAILURE_RETRY(close(pipefd[1])))
     ALOGW_ERRNO("close");
   if (TEMP_FAILURE_RETRY(close(pipefd[0])))
