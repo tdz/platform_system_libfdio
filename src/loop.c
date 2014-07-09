@@ -28,7 +28,7 @@
 
 struct fd_state {
   struct epoll_event event;
-  void (*func)(int, uint32_t, void*);
+  enum ioresult (*func)(int, uint32_t, void*);
   void* data;
 };
 
@@ -50,7 +50,7 @@ fd_is_valid(int fd)
 
 int
 add_fd_to_epoll_loop(int fd, uint32_t epoll_events,
-                     void (*func)(int, uint32_t, void*), void* data)
+                     enum ioresult (*func)(int, uint32_t, void*), void* data)
 {
   int enabled;
   int res;
@@ -83,24 +83,27 @@ add_fd_to_epoll_loop(int fd, uint32_t epoll_events,
   return 0;
 }
 
-/* returns event bits at position 'i' or above */
+/* returns bits at position 'i' or above */
 static int
-events_above(uint32_t epoll_events, unsigned int i)
+bits_above(uint32_t epoll_events, unsigned int i)
 {
   assert(i < 32);
   return epoll_events & ~((1<<i)-1);
 }
 
-static void
+static enum ioresult
 fd_events_func(int fd, uint32_t epoll_events, const struct fd_events* evfuncs)
 {
+  enum ioresult res;
   uint32_t bit;
 
   assert(evfuncs);
 
-  for (bit = 0; events_above(epoll_events, bit); ++bit) {
-    void (*func)(int, void*);
-    switch (epoll_events & (1<<bit)) {
+  for (bit = 0, res = IO_OK;
+       bits_above(epoll_events, bit) && res == IO_OK;
+     ++bit) {
+    enum ioresult (*func)(int, void*);
+    switch (epoll_events & (1ul<<bit)) {
       case 0:
         /* no event at current bit */
         continue;
@@ -124,14 +127,15 @@ fd_events_func(int fd, uint32_t epoll_events, const struct fd_events* evfuncs)
         continue;
     }
     if (func) {
-      func(fd, evfuncs->data);
+      res = func(fd, evfuncs->data);
     } else {
       ALOGE("unhandled event bit 0x%x", bit);
     }
   }
+  return res;
 }
 
-static void
+static enum ioresult
 fd_events_func_cb(int fd, uint32_t epoll_events, void* data)
 {
   return fd_events_func(fd, epoll_events, data);
@@ -149,7 +153,7 @@ add_fd_events_to_epoll_loop(int fd, uint32_t epoll_events,
                               (void*)evfuncs);
 }
 
-static void 
+static void
 clear_fd_state(struct fd_state *fd_state)
 {
   assert(fd_state);
@@ -179,31 +183,32 @@ remove_fd_from_epoll_loop(int fd)
   clear_fd_state(&fd_state[fd]);
 }
 
-static int
+static enum ioresult
 epoll_loop_iteration(void)
 {
   struct epoll_event events[MAXNFDS];
   int nevents, i;
+  enum ioresult res;
 
   nevents = TEMP_FAILURE_RETRY(epoll_wait(epfd, events, ARRAYLEN(events), -1));
   if (nevents < 0) {
     ALOGE_ERRNO("epoll_wait");
-    return -1;
+    return IO_ABORT;
   }
 
-  for (i = 0; i < nevents; ++i) {
+  for (i = 0, res = IO_OK; i < nevents && res == IO_OK; ++i) {
     int fd = events[i].data.fd;
 
     assert(fd_state[fd].func);
-    fd_state[fd].func(fd, events[i].events, fd_state[fd].data);
+    res = fd_state[fd].func(fd, events[i].events, fd_state[fd].data);
   }
-  return 0;
+  return res;
 }
 
 int
-epoll_loop(int (*init)(void*), void* data)
+epoll_loop(enum ioresult (*init)(void*), void* data)
 {
-  int res;
+  enum ioresult res;
 
   epfd = epoll_create(ARRAYLEN(fd_state));
   if (epfd < 0) {
@@ -211,14 +216,16 @@ epoll_loop(int (*init)(void*), void* data)
     return -1;
   }
 
-  if (init && (init(data) < 0))
+  if (init && (res = init(data)) == IO_ABORT)
     goto err_init;
+  else
+    res = IO_OK;
 
-  do {
+  while (res == IO_OK || res == IO_POLL) {
     res = epoll_loop_iteration();
-  } while (!res);
+  }
 
-  if (res < 0)
+  if (res == IO_ABORT)
     goto err_epoll_loop_iteration;
 
   if (TEMP_FAILURE_RETRY(close(epfd)) < 0)

@@ -23,7 +23,7 @@
 #include "log.h"
 
 struct task {
-  int (*func)(void* data);
+  enum ioresult (*func)(void* data);
   void* data;
 };
 
@@ -64,27 +64,34 @@ delete_task(struct task* task)
   free(task);
 }
 
-static void
+static enum ioresult
 exec_task()
 {
-  struct task* task = fetch_task();
-  if (!task)
-    return;
+  struct task* task;
+  enum ioresult res;
 
-  task->func(task->data);
+  task = fetch_task();
+  if (!task)
+    return IO_ABORT;
+
+  res = task->func(task->data);
   delete_task(task);
+
+  return res;
 }
 
-static void
+static enum ioresult
 task_epollin_cb(int fd, void* data)
 {
-  exec_task();
+  return exec_task();
 }
 
-static void
+static enum ioresult
 task_epollerr_cb(int fd, void* data)
 {
   ALOGE("Task pipe error");
+
+  return IO_ABORT;
 }
 
 int
@@ -141,7 +148,7 @@ send_task(struct task* task)
 }
 
 static struct task*
-create_task(int (*func)(void*), void* data)
+create_task(enum ioresult (*func)(void*), void* data)
 {
   struct task* task;
 
@@ -161,7 +168,7 @@ create_task(int (*func)(void*), void* data)
 }
 
 int
-run_task(int (*func)(void*), void* data)
+run_task(enum ioresult (*func)(void*), void* data)
 {
   struct task* task;
 

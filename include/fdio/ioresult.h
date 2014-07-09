@@ -16,33 +16,16 @@
 
 #pragma once
 
-/*
- * This file provides the API to running a function in the context of the
- * poll loop.
- *
- * The task queue must be initialized using |init_task_queue|. It should
- * be called from within the init function that is supplied to |epoll_loop|.
- *
- * The function |run_task| dispatches an event to the poll loop that executes
- * the function 'func' with the supplied user data as argument.
- *
- * This interface is _not_ thread-safe, except for |run_task|.
- */
-
-#include "loop.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-int
-init_task_queue(void);
-
-void
-uninit_task_queue(void);
-
-int
-run_task(enum ioresult (*func)(void*), void* data);
+enum ioresult {
+  IO_OK, /* continue with next event */
+  IO_POLL, /* poll again */
+  IO_EXIT, /* leave poll loop signalling success */
+  IO_ABORT /* leave poll loop signalling failure */
+};
 
 #ifdef __cplusplus
 }

@@ -17,6 +17,7 @@
 #pragma once
 
 #include <stdint.h>
+#include "ioresult.h"
 
 /*
  * This file provides the API to the epoll main loop.
@@ -48,16 +49,16 @@ extern "C" {
 
 struct fd_events {
   void* data;
-  void (*epollin)(int, void*);
-  void (*epollpri)(int, void*);
-  void (*epollout)(int, void*);
-  void (*epollerr)(int, void*);
-  void (*epollhup)(int, void*);
+  enum ioresult (*epollin)(int, void*);
+  enum ioresult (*epollpri)(int, void*);
+  enum ioresult (*epollout)(int, void*);
+  enum ioresult (*epollerr)(int, void*);
+  enum ioresult (*epollhup)(int, void*);
 };
 
 int
 add_fd_to_epoll_loop(int fd, uint32_t epoll_events,
-                     void (*func)(int, uint32_t, void*), void* data);
+                     enum ioresult (*func)(int, uint32_t, void*), void* data);
 
 int
 add_fd_events_to_epoll_loop(int fd, uint32_t epoll_events,
@@ -67,7 +68,7 @@ void
 remove_fd_from_epoll_loop(int fd);
 
 int
-epoll_loop(int (*init)(void*), void* data);
+epoll_loop(enum ioresult (*init)(void*), void* data);
 
 #ifdef __cplusplus
 }
