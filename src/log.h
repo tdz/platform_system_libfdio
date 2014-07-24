@@ -22,6 +22,15 @@
 #include <string.h>
 #include <utils/Log.h>
 
+/* support ICS logging macros */
+#if ANDROID_VERSION < 16
+#define ALOGV LOGV
+#define ALOGD LOGD
+#define ALOGI LOGI
+#define ALOGW LOGW
+#define ALOGE LOGE
+#endif
+
 #define _ERRNO_STR(_func, _err) \
   "%s failed: %s", (_func), strerror(_err)
 
