@@ -20,19 +20,13 @@
 #include <unistd.h>
 #include <fdio/loop.h>
 #include "log.h"
+#include "fdstate.h"
 
-#define MAXNFDS 64
+#define MAXNEVENTS 64
 
 #define ARRAYLEN(x) \
   (sizeof(x) / sizeof(x[0]))
 
-struct fd_state {
-  struct epoll_event event;
-  enum ioresult (*func)(int, uint32_t, void*);
-  void* data;
-};
-
-static struct fd_state fd_state[MAXNFDS];
 static int epfd;
 
 static int
@@ -40,9 +34,6 @@ fd_is_valid(int fd)
 {
   if (fd < 0) {
     ALOGE("invalid file descriptor %d", fd);
-    return 0;
-  } else if (fd >= (ssize_t)ARRAYLEN(fd_state)) {
-    ALOGE("file descriptors %d out of range", fd);
     return 0;
   }
   return 1;
@@ -52,6 +43,7 @@ int
 add_fd_to_epoll_loop(int fd, uint32_t epoll_events,
                      enum ioresult (*func)(int, uint32_t, void*), void* data)
 {
+  struct fd_state* fd_state;
   int enabled;
   int res;
 
@@ -62,23 +54,28 @@ add_fd_to_epoll_loop(int fd, uint32_t epoll_events,
     return -1;
   }
 
-  enabled = !!fd_state[fd].event.events;
+  fd_state = get_fd_state(fd, 1);
+  if (!fd_state) {
+    return -1;
+  }
 
-  fd_state[fd].event.events = epoll_events;
-  fd_state[fd].event.data.fd = fd;
+  enabled = !!fd_state->event.events;
+
+  fd_state->event.events = epoll_events;
+  fd_state->event.data.fd = fd;
 
   if (enabled)
-    res = epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &fd_state[fd].event);
+    res = epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &fd_state->event);
   else
-    res = epoll_ctl(epfd, EPOLL_CTL_ADD, fd, &fd_state[fd].event);
+    res = epoll_ctl(epfd, EPOLL_CTL_ADD, fd, &fd_state->event);
 
   if (res < 0) {
     ALOGE_ERRNO("epoll_ctl");
     return -1;
   }
 
-  fd_state[fd].func = func;
-  fd_state[fd].data = data;
+  fd_state->func = func;
+  fd_state->data = data;
 
   return 0;
 }
@@ -153,39 +150,32 @@ add_fd_events_to_epoll_loop(int fd, uint32_t epoll_events,
                               (void*)evfuncs);
 }
 
-static void
-clear_fd_state(struct fd_state* fd_state)
-{
-  assert(fd_state);
-
-  fd_state->event.events = 0;
-  /* use the largest union member to clean allocated memory*/
-  fd_state->event.data.u64 = 0;
-  fd_state->func = NULL;
-  fd_state->data = NULL;
-}
-
 void
 remove_fd_from_epoll_loop(int fd)
 {
+  struct fd_state* fd_state;
   int res;
 
   if (!fd_is_valid(fd))
     return;
 
-  assert(fd_state[fd].events);
+  fd_state = get_fd_state(fd, 0);
+  if (!fd_state)
+    return;
+
+  assert(fd_state->events);
 
   res = epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
   if (res < 0)
     ALOGW_ERRNO("epoll_ctl");
 
-  clear_fd_state(&fd_state[fd]);
+  clear_fd_state(fd_state);
 }
 
 static enum ioresult
 epoll_loop_iteration(void)
 {
-  struct epoll_event events[MAXNFDS];
+  struct epoll_event events[MAXNEVENTS];
   int nevents, i;
   enum ioresult res;
 
@@ -196,10 +186,16 @@ epoll_loop_iteration(void)
   }
 
   for (i = 0, res = IO_OK; i < nevents && res == IO_OK; ++i) {
-    int fd = events[i].data.fd;
+    int fd;
+    const struct fd_state* fd_state;
 
-    assert(fd_state[fd].func);
-    res = fd_state[fd].func(fd, events[i].events, fd_state[fd].data);
+    fd = events[i].data.fd;
+
+    fd_state = get_fd_state(fd, 0);
+    assert(fd_state);
+
+    assert(fd_state->func);
+    res = fd_state->func(fd, events[i].events, fd_state->data);
   }
   return res;
 }
@@ -209,7 +205,7 @@ epoll_loop(enum ioresult (*init)(void*), void (*uninit)(void*), void* data)
 {
   enum ioresult res;
 
-  epfd = epoll_create(ARRAYLEN(fd_state));
+  epfd = epoll_create(MAXNEVENTS);
   if (epfd < 0) {
     ALOGE_ERRNO("epoll_create");
     return -1;
@@ -233,10 +229,13 @@ epoll_loop(enum ioresult (*init)(void*), void (*uninit)(void*), void* data)
   if (TEMP_FAILURE_RETRY(close(epfd)) < 0)
     ALOGW_ERRNO("close");
 
+  free_fd_states();
+
   return 0;
 err_epoll_loop_iteration:
 err_init:
   if (TEMP_FAILURE_RETRY(close(epfd)) < 0)
     ALOGW_ERRNO("close");
+  free_fd_states();
   return -1;
 }
