@@ -44,7 +44,7 @@ fetch_task(void)
   count = sizeof(buf.task);
 
   while (count) {
-    ssize_t res = TEMP_FAILURE_RETRY(read(pipefd[0], buf.raw+off, count));
+    ssize_t res = TEMP_FAILURE_RETRY(read(pipefd[0], buf.raw + off, count));
     if (res < 0) {
       /* if this fails, you best close the pipe and restart completely */
       ALOGE_ERRNO("read");

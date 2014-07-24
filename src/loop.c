@@ -88,7 +88,7 @@ static int
 bits_above(uint32_t epoll_events, unsigned int i)
 {
   assert(i < 32);
-  return epoll_events & ~((1<<i)-1);
+  return epoll_events & ~((1 << i) - 1);
 }
 
 static enum ioresult
@@ -103,7 +103,7 @@ fd_events_func(int fd, uint32_t epoll_events, const struct fd_events* evfuncs)
        bits_above(epoll_events, bit) && res == IO_OK;
      ++bit) {
     enum ioresult (*func)(int, void*);
-    switch (epoll_events & (1ul<<bit)) {
+    switch (epoll_events & (1ul << bit)) {
       case 0:
         /* no event at current bit */
         continue;
@@ -154,7 +154,7 @@ add_fd_events_to_epoll_loop(int fd, uint32_t epoll_events,
 }
 
 static void
-clear_fd_state(struct fd_state *fd_state)
+clear_fd_state(struct fd_state* fd_state)
 {
   assert(fd_state);
 
@@ -164,7 +164,6 @@ clear_fd_state(struct fd_state *fd_state)
   fd_state->func = NULL;
   fd_state->data = NULL;
 }
-
 
 void
 remove_fd_from_epoll_loop(int fd)
