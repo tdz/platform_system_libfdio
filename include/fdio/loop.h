@@ -68,7 +68,7 @@ void
 remove_fd_from_epoll_loop(int fd);
 
 int
-epoll_loop(enum ioresult (*init)(void*), void* data);
+epoll_loop(enum ioresult (*init)(void*), void (*uninit)(void*), void* data);
 
 #ifdef __cplusplus
 }

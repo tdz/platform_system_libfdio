@@ -206,7 +206,7 @@ epoll_loop_iteration(void)
 }
 
 int
-epoll_loop(enum ioresult (*init)(void*), void* data)
+epoll_loop(enum ioresult (*init)(void*), void (*uninit)(void*), void* data)
 {
   enum ioresult res;
 
@@ -227,6 +227,9 @@ epoll_loop(enum ioresult (*init)(void*), void* data)
 
   if (res == IO_ABORT)
     goto err_epoll_loop_iteration;
+
+  if (uninit)
+    uninit(data);
 
   if (TEMP_FAILURE_RETRY(close(epfd)) < 0)
     ALOGW_ERRNO("close");
