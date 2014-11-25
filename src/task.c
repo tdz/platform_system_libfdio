@@ -20,6 +20,7 @@
 #include <unistd.h>
 #include <fdio/loop.h>
 #include <fdio/task.h>
+#include "compiler.h"
 #include "log.h"
 
 struct task {
@@ -81,13 +82,13 @@ exec_task()
 }
 
 static enum ioresult
-task_epollin_cb(int fd, void* data)
+task_epollin_cb(int fd ATTRIBS(UNUSED), void* data ATTRIBS(UNUSED))
 {
   return exec_task();
 }
 
 static enum ioresult
-task_epollerr_cb(int fd, void* data)
+task_epollerr_cb(int fd ATTRIBS(UNUSED), void* data ATTRIBS(UNUSED))
 {
   ALOGE("Task pipe error");
 
