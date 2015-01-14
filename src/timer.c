@@ -77,6 +77,7 @@ add_timer_to_epoll_loop(int clockid ATTRIBS(UNUSED),
   struct add_timer_param* param;
 
   assert(timeout_ms || frequency_ms);
+  assert(!periodic || (periodic && frequency_ms));
 
   fd = timerfd_create(clockid, TFD_NONBLOCK|TFD_CLOEXEC);
   if (fd < 0) {
@@ -84,7 +85,7 @@ add_timer_to_epoll_loop(int clockid ATTRIBS(UNUSED),
     return -1;
   }
 
-  if (periodic) {
+  if (!periodic) {
     timeout.it_interval.tv_sec = 0;
     timeout.it_interval.tv_nsec = 0;
   } else {
