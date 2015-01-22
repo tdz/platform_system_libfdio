@@ -11,6 +11,7 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := fdstate.c \
                    loop.c \
                    task.c \
+                   timer.c \
                    $(local_source_files)
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/../include
 LOCAL_CFLAGS := -DANDROID_VERSION=$(PLATFORM_SDK_VERSION) -Wall -Werror
