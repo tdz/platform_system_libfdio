@@ -23,39 +23,6 @@
 #include <fdio/timer.h>
 #include "log.h"
 
-struct timer_param {
-  enum ioresult (*func)(int, uint32_t, void*);
-  void* data;
-};
-
-struct add_timer_param {
-  int fd;
-  struct timer_param param;
-};
-
-static enum ioresult
-add_timer_cb(void* data)
-{
-  struct add_timer_param* param = data;
-  assert(param);
-
-  add_fd_to_epoll_loop(param->fd, EPOLLIN | EPOLLERR,
-                       param->param.func, param->param.data);
-  free(param);
-
-  return IO_OK;
-}
-
-static enum ioresult
-remove_timer_cb(void* data)
-{
-  int fd = (int)data;
-
-  remove_fd_from_epoll_loop(fd);
-
-  return IO_OK;
-}
-
 static struct timespec*
 set_timespec(struct timespec* timespec,
              unsigned long long time_ms)
@@ -103,26 +70,12 @@ add_timer(int clockid,
   }
 
   /* install timerfd from within I/O loop */
-
-  errno = 0;
-  param = malloc(sizeof(*param));
-  if (errno) {
-    ALOGE_ERRNO("malloc");
-    goto err_malloc;
-  }
-
-  param->fd = fd;
-  param->param.func = func;
-  param->param.data = data;
-
-  if (run_task(add_timer_cb, param) < 0)
-    goto err_run_task;
+  if (add_fd_to_epoll_loop(fd, EPOLLIN | EPOLLERR, func, data) < 0)
+    goto err_add_fd_to_epoll_loop;
 
   return fd;
 
-err_run_task:
-  free(param);
-err_malloc:
+err_add_fd_to_epoll_loop:
 err_timerfd_settime:
   if (TEMP_FAILURE_RETRY(close(fd)) < 0)
     ALOGW_ERRNO("close");
@@ -151,21 +104,4 @@ add_absolute_timer_to_epoll_loop(int clockid,
   assert(timeout_ms);
 
   return add_timer(clockid, 1, timeout_ms, interval_ms, func, data);
-}
-
-void
-remove_timer(int timer)
-{
-  if (run_task(remove_timer_cb, (void*)timer) < 0)
-    goto err_run_task;
-
-  return;
-
-err_run_task:
-  /* If anything goes wrong, we cleanup here and hope for the best.
-   */
-  remove_fd_from_epoll_loop(timer);
-  if (TEMP_FAILURE_RETRY(close(timer)) < 0)
-    ALOGW_ERRNO("close");
-  return;
 }
