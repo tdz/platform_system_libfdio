@@ -37,10 +37,10 @@
  * an absolute time. All other parameters are the same as for
  * |add_relative_timer_to_epoll_loop|.
  *
- * To remove an existing timer, call |remove_timer|. The parameter is
- * a timer that has been returned by |add_timer_to_epoll_loop|. The
- * function will remove the timer from the I/O loop and cleanup its
- * resources.
+ * To remove an existing timer, call |remove_fd_from_epoll_loop|. The
+ * parameter is a timer that has been returned by |add_{relative,absolute}_
+ * timer_to_epoll_loop|. The function will remove the timer from the I/O
+ * loop. File descriptors must be closed by callers.
  */
 
 #include <stdint.h>
@@ -63,9 +63,6 @@ add_absolute_timer_to_epoll_loop(int clockid,
                                  unsigned long long interval_ms,
                                  enum ioresult (*func)(int, uint32_t, void*),
                                  void* data);
-
-void
-remove_timer(int timer);
 
 #ifdef __cplusplus
 }
