@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014  Mozilla Foundation
+ * Copyright (C) 2014-2015  Mozilla Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,9 +63,8 @@ get_fd_state(int fd, int alloc)
     return NULL;
   }
 
-  errno = 0;
   mem = realloc(fd_state, newnfdstates * sizeof(*fd_state));
-  if (errno) {
+  if (!mem) {
     ALOGE_ERRNO("realloc");
     return NULL;
   }
