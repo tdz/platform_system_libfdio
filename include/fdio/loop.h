@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014  Mozilla Foundation
+ * Copyright (C) 2014-2015  Mozilla Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,6 +55,9 @@ struct fd_events {
   enum ioresult (*epollerr)(int, void*);
   enum ioresult (*epollhup)(int, void*);
 };
+
+enum ioresult
+fd_events_handler(int fd, uint32_t epoll_events, void* data);
 
 int
 add_fd_to_epoll_loop(int fd, uint32_t epoll_events,
