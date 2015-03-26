@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014  Mozilla Foundation
+ * Copyright (C) 2014-2015  Mozilla Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -135,6 +135,16 @@ fd_events_func(int fd, uint32_t epoll_events, const struct fd_events* evfuncs)
 static enum ioresult
 fd_events_func_cb(int fd, uint32_t epoll_events, void* data)
 {
+  return fd_events_func(fd, epoll_events, data);
+}
+
+enum ioresult
+fd_events_handler(int fd, uint32_t epoll_events, void* data)
+{
+  if (!data) {
+    ALOGE("no callback structure specified");
+    return IO_ABORT;
+  }
   return fd_events_func(fd, epoll_events, data);
 }
 
