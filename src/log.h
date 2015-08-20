@@ -24,12 +24,26 @@
 
 /* support ICS logging macros */
 #if ANDROID_VERSION < 16
+#ifndef ALOGV
 #define ALOGV LOGV
+#endif /* ALOGV */
+
+#ifndef ALOGD
 #define ALOGD LOGD
+#endif /* ALOGD */
+
+#ifndef ALOGI
 #define ALOGI LOGI
+#endif /* ALOGI */
+
+#ifndef ALOGW
 #define ALOGW LOGW
+#endif /* ALOGW */
+
+#ifndef ALOGE
 #define ALOGE LOGE
-#endif
+#endif /* ALOGE */
+#endif /* ANDROID_VERSION < 16 */
 
 #define _ERRNO_STR(_func, _err) \
   "%s failed: %s", (_func), strerror(_err)
